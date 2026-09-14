@@ -70,87 +70,110 @@ class FunnelStates(StatesGroup):
     waiting_for_q5 = State()
     waiting_for_q6 = State()
 
-# Вопросы и варианты ответов
+# Вопросы и варианты ответов (каждому индексу соответствует текст)
 QUESTIONS = {
-    'q1': ("Чем вы сейчас занимаетесь?", [
-        "Работаю по найму", "Работаю на себя", "Развиваю свой бизнес", 
-        "Совмещаю несколько занятий", "Сейчас в поиске"
-    ]),
-    'q2': ("Что вы хотели бы изменить в своей текущей ситуации?", [
-        "Увеличить доход", "Создать дополнительный источник дохода", 
-        "Сменить деятельность", "Создать своё дело", "Другое"
-    ]),
-    'q3': ("Какой дополнительный доход был бы для вас действительно значимым?", [
-        "До 30 000 ₽", "30–50 000 ₽", "50–100 000 ₽", "100–200 000 ₽", "Более 200 000 ₽"
-    ]),
-    'q4': ("Сколько времени вы готовы уделять новому направлению?", [
-        "До 30 минут в день", "30–60 минут", "1–2 часа", "2–4 часа", "Более 4 часов"
-    ]),
-    'q5': ("Что сейчас больше всего мешает вам двигаться вперёд?", [
-        "Не хватает времени", "Нет подходящей идеи", "Не хватает денег", 
-        "Не хватает знаний", "Не знаю, с чего начать", "Уже пробовал(а), но не получилось"
-    ]),
-    'q6': ("Если вы увидите подходящую возможность, готовы ли вы её рассмотреть?", [
-        "Готов(а) начать сейчас", "Готов(а), если пойму условия", 
-        "Пока хочу просто изучить", "Сейчас не готов(а)"
-    ])
+    'q1': {
+        "text": "Чем вы сейчас занимаетесь?",
+        "options": [
+            "Работаю по найму", "Работаю на себя", "Развиваю свой бизнес", 
+            "Совмещаю несколько занятий", "Сейчас в поиске"
+        ]
+    },
+    'q2': {
+        "text": "Что вы хотели бы изменить в своей текущей ситуации?",
+        "options": [
+            "Увеличить доход", "Создать дополнительный источник дохода", 
+            "Сменить деятельность", "Создать своё дело", "Другое"
+        ]
+    },
+    'q3': {
+        "text": "Какой дополнительный доход был бы для вас действительно значимым?",
+        "options": [
+            "До 30 000 ₽", "30–50 000 ₽", "50–100 000 ₽", "100–200 000 ₽", "Более 200 000 ₽"
+        ]
+    },
+    'q4': {
+        "text": "Сколько времени вы готовы уделять новому направлению?",
+        "options": [
+            "До 30 минут в день", "30–60 минут", "1–2 часа", "2–4 часа", "Более 4 часов"
+        ]
+    },
+    'q5': {
+        "text": "Что сейчас больше всего мешает вам двигаться вперёд?",
+        "options": [
+            "Не хватает времени", "Нет подходящей идеи", "Не хватает денег", 
+            "Не хватает знаний", "Не знаю, с чего начать", "Уже пробовал(а), но не получилось"
+        ]
+    },
+    'q6': {
+        "text": "Если вы увидите подходящую возможность, готовы ли вы её рассмотреть?",
+        "options": [
+            "Готов(а) начать сейчас", "Готов(а), если пойму условия", 
+            "Пока хочу просто изучить", "Сейчас не готов(а)"
+        ]
+    }
 }
 
-def make_keyboard(options):
+def make_keyboard(q_key, options):
+    # Теперь callback_data состоит из короткого ключа и индекса (например: ans_q1_0), что гарантированно меньше 64 байт
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=opt, callback_data=f"ans_{opt}")] for opt in options
+        [InlineKeyboardButton(text=opt, callback_data=f"ans_{q_key}_{i}")] for i, opt in enumerate(options)
     ])
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
-    q_text, options = QUESTIONS['q1']
-    await message.answer(f"1/6. {q_text}", reply_markup=make_keyboard(options))
+    q_data = QUESTIONS['q1']
+    await message.answer(f"1/6. {q_data['text']}", reply_markup=make_keyboard('q1', q_data['options']))
     await state.set_state(FunnelStates.waiting_for_q1)
 
 @router.callback_query(F.data.startswith("ans_"))
 async def process_answer(callback: CallbackQuery, state: FSMContext):
-    answer = callback.data.replace("ans_", "")
+    parts = callback.data.split("_")
+    # Формат data: ans_{q_key}_{index} -> parts[1] это q1/q2, parts[2] это индекс опции
+    q_key = parts[1]
+    index = int(parts[2])
+    
     current_state = await state.get_state()
     data = await state.get_data()
     
-    if current_state == FunnelStates.waiting_for_q1.state:
-        data['q1'] = answer
+    if current_state == FunnelStates.waiting_for_q1.state and q_key == 'q1':
+        data['q1'] = QUESTIONS['q1']['options'][index]
         await state.set_data(data)
-        q_text, options = QUESTIONS['q2']
-        await callback.message.edit_text(f"2/6. {q_text}", reply_markup=make_keyboard(options))
+        q_data = QUESTIONS['q2']
+        await callback.message.edit_text(f"2/6. {q_data['text']}", reply_markup=make_keyboard('q2', q_data['options']))
         await state.set_state(FunnelStates.waiting_for_q2)
         
-    elif current_state == FunnelStates.waiting_for_q2.state:
-        data['q2'] = answer
+    elif current_state == FunnelStates.waiting_for_q2.state and q_key == 'q2':
+        data['q2'] = QUESTIONS['q2']['options'][index]
         await state.set_data(data)
-        q_text, options = QUESTIONS['q3']
-        await callback.message.edit_text(f"3/6. {q_text}", reply_markup=make_keyboard(options))
+        q_data = QUESTIONS['q3']
+        await callback.message.edit_text(f"3/6. {q_data['text']}", reply_markup=make_keyboard('q3', q_data['options']))
         await state.set_state(FunnelStates.waiting_for_q3)
         
-    elif current_state == FunnelStates.waiting_for_q3.state:
-        data['q3'] = answer
+    elif current_state == FunnelStates.waiting_for_q3.state and q_key == 'q3':
+        data['q3'] = QUESTIONS['q3']['options'][index]
         await state.set_data(data)
-        q_text, options = QUESTIONS['q4']
-        await callback.message.edit_text(f"4/6. {q_text}", reply_markup=make_keyboard(options))
+        q_data = QUESTIONS['q4']
+        await callback.message.edit_text(f"4/6. {q_data['text']}", reply_markup=make_keyboard('q4', q_data['options']))
         await state.set_state(FunnelStates.waiting_for_q4)
         
-    elif current_state == FunnelStates.waiting_for_q4.state:
-        data['q4'] = answer
+    elif current_state == FunnelStates.waiting_for_q4.state and q_key == 'q4':
+        data['q4'] = QUESTIONS['q4']['options'][index]
         await state.set_data(data)
-        q_text, options = QUESTIONS['q5']
-        await callback.message.edit_text(f"5/6. {q_text}", reply_markup=make_keyboard(options))
+        q_data = QUESTIONS['q5']
+        await callback.message.edit_text(f"5/6. {q_data['text']}", reply_markup=make_keyboard('q5', q_data['options']))
         await state.set_state(FunnelStates.waiting_for_q5)
         
-    elif current_state == FunnelStates.waiting_for_q5.state:
-        data['q5'] = answer
+    elif current_state == FunnelStates.waiting_for_q5.state and q_key == 'q5':
+        data['q5'] = QUESTIONS['q5']['options'][index]
         await state.set_data(data)
-        q_text, options = QUESTIONS['q6']
-        await callback.message.edit_text(f"6/6. {q_text}", reply_markup=make_keyboard(options))
+        q_data = QUESTIONS['q6']
+        await callback.message.edit_text(f"6/6. {q_data['text']}", reply_markup=make_keyboard('q6', q_data['options']))
         await state.set_state(FunnelStates.waiting_for_q6)
         
-    elif current_state == FunnelStates.waiting_for_q6.state:
-        data['q6'] = answer
+    elif current_state == FunnelStates.waiting_for_q6.state and q_key == 'q6':
+        data['q6'] = QUESTIONS['q6']['options'][index]
         
         username = callback.from_user.username or f"id_{callback.from_user.id}"
         save_user_answer(callback.from_user.id, username, data)
@@ -251,6 +274,7 @@ HTML_USER_DETAIL = """
             <li><strong>3. Значимый доход:</strong> {{ user[4] }}</li>
             <li><strong>4. Готовность времени:</strong> {{ user[5] }}</li>
             <li><strong>5. Что мешает:</strong> {{ user[6] }}</li>
+            <li><strong>6. Готовность к возможности:</strong> {{ user[7] }}</li>
         </ul>
         <br>
         <a href="/">⬅ Назад к списку</a>
