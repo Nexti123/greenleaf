@@ -1,5 +1,4 @@
-aiogram==3.13.1
-pydantic==2.9.2
-pydantic-core==2.30.2
+aiogram==3.17.0
+pydantic==2.10.6
 flask==3.1.0
 requests==2.32.3
