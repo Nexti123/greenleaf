@@ -14,10 +14,13 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Конфигурация из переменных окружения (или дефолтные для теста)
-BOT_TOKEN = os.getenv("BOT_TOKEN", "ТВОЙ_ТОКЕН_БОТА")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "secret123")  # Пароль от админки на сайте
+# Чтение конфигурации из переменных окружения Render
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "secret123")
 PORT = int(os.getenv("PORT", 10000))
+
+if not BOT_TOKEN:
+    logging.error("❌ Ошибка: Не найден BOT_TOKEN в переменных окружения!")
 
 # Инициализация базы данных SQLite
 DB_NAME = "funnel_users.db"
@@ -54,7 +57,7 @@ def save_user_answer(user_id, username, data):
     conn.close()
 
 # Инициализация бота
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 
@@ -94,10 +97,9 @@ QUESTIONS = {
 }
 
 def make_keyboard(options):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=opt, callback_data=f"ans_{opt}")] for opt in options
     ])
-    return keyboard
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
@@ -110,8 +112,6 @@ async def cmd_start(message: Message, state: FSMContext):
 async def process_answer(callback: CallbackQuery, state: FSMContext):
     answer = callback.data.replace("ans_", "")
     current_state = await state.get_state()
-    
-    # Сохраняем ответ в FSM
     data = await state.get_data()
     
     if current_state == FunnelStates.waiting_for_q1.state:
@@ -152,7 +152,6 @@ async def process_answer(callback: CallbackQuery, state: FSMContext):
     elif current_state == FunnelStates.waiting_for_q6.state:
         data['q6'] = answer
         
-        # Финал: сохраняем в базу данных
         username = callback.from_user.username or f"id_{callback.from_user.id}"
         save_user_answer(callback.from_user.id, username, data)
         
@@ -241,14 +240,15 @@ HTML_USER_DETAIL = """
 <body>
     <div class="card">
         <h2>📋 Анкета пользователя: @{{ user[1] }}</h2>
-        <p><strong>ID в Telegram:</strong> {{ user[0] }}</p>
+        <p><strong>Telegram:</strong> <a href="https://t.me/{{ user[1].replace('@','') }}" target="_blank">Написать в личку (@{{ user[1] }})</a></p>
+        <p><strong>ID:</strong> {{ user[0] }}</p>
         <p><strong>Дата:</strong> {{ user[7] }}</p>
         <hr>
         <h3>Ответы на вопросы:</h3>
         <ul>
             <li><strong>1. Занятость:</strong> {{ user[2] }}</li>
-            <li><strong>2. Что хочет изменить:</strong> {{ user[3] }}</li>
-            <li><strong>3. Желаемый доход:</strong> {{ user[4] }}</li>
+            <li><strong>2. Желаемые изменения:</strong> {{ user[3] }}</li>
+            <li><strong>3. Значимый доход:</strong> {{ user[4] }}</li>
             <li><strong>4. Готовность времени:</strong> {{ user[5] }}</li>
             <li><strong>5. Что мешает:</strong> {{ user[6] }}</li>
         </ul>
@@ -306,17 +306,19 @@ def logout():
     return redirect(url_for('login'))
 
 
-# Запуск бота и веб-сервера вместе
+# Запуск бота и веб-сервера
 async def main():
+    if not bot:
+        return
     dp.include_router(router)
     await bot.delete_webhook(drop_pending_updates=True)
     
-    # Запускаем Flask в отдельном потоке
+    # Запуск Flask в отдельном потоке
     flask_thread = Thread(target=lambda: flask_app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False))
     flask_thread.daemon = True
     flask_thread.start()
     
-    print(f"🚀 Бот и сайт запущены! Админка доступна по порту {PORT}")
+    print(f"🚀 Бот и сайт запущены! Порт: {PORT}")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
