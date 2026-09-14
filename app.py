@@ -70,7 +70,7 @@ class FunnelStates(StatesGroup):
     waiting_for_q5 = State()
     waiting_for_q6 = State()
 
-# Вопросы и варианты ответов (каждому индексу соответствует текст)
+# Вопросы и варианты ответов
 QUESTIONS = {
     'q1': {
         "text": "Чем вы сейчас занимаетесь?",
@@ -115,7 +115,6 @@ QUESTIONS = {
 }
 
 def make_keyboard(q_key, options):
-    # Теперь callback_data состоит из короткого ключа и индекса (например: ans_q1_0), что гарантированно меньше 64 байт
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=opt, callback_data=f"ans_{q_key}_{i}")] for i, opt in enumerate(options)
     ])
@@ -130,7 +129,6 @@ async def cmd_start(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("ans_"))
 async def process_answer(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
-    # Формат data: ans_{q_key}_{index} -> parts[1] это q1/q2, parts[2] это индекс опции
     q_key = parts[1]
     index = int(parts[2])
     
@@ -186,98 +184,210 @@ async def process_answer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-# ==================== FLASK ПАНЕЛЬ УПРАВЛЕНИЯ ====================
+# ==================== FLASK ПАНЕЛЬ УПРАВЛЕНИЯ (DARK BEIGE / LATTE STYLE) ====================
 flask_app = Flask(__name__)
 flask_app.secret_key = os.urandom(24)
 
-HTML_LOGIN = """
+BASE_STYLE = """
+    <style>
+        :root {
+            --bg-color: #1a1816;
+            --card-bg: #24211e;
+            --border-color: #38332e;
+            --text-main: #f5f0eb;
+            --text-muted: #b8afa6;
+            --accent: #d4a373;
+            --accent-hover: #faedcd;
+            --danger: #e07a5f;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            margin-bottom: 25px;
+        }
+        h2, h3 {
+            margin-top: 0;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: rgba(212, 163, 115, 0.1);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td {
+            color: var(--text-main);
+            font-size: 15px;
+        }
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+        .btn {
+            display: inline-block;
+            background-color: var(--accent);
+            color: #1a1816;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover {
+            background-color: var(--accent-hover);
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+        .logout-link {
+            color: var(--text-muted);
+            display: inline-block;
+            margin-top: 10px;
+        }
+        input[type="password"] {
+            background-color: #1a1816;
+            border: 1px solid var(--border-color);
+            padding: 12px 15px;
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 16px;
+            width: 250px;
+            outline: none;
+            margin-right: 10px;
+        }
+        input[type="password"]:focus {
+            border-color: var(--accent);
+        }
+        ul {
+            padding-left: 20px;
+            line-height: 1.8;
+            color: var(--text-muted);
+        }
+        ul strong {
+            color: var(--text-main);
+        }
+        .error-msg {
+            color: var(--danger);
+            margin-bottom: 15px;
+        }
+    </style>
+"""
+
+HTML_LOGIN = f"""
 <!DOCTYPE html>
 <html>
-<head><title>Вход в админку</title></head>
-<body style="font-family:sans-serif; text-align:center; margin-top:100px;">
-    <h2>🔐 Вход в личный кабинет</h2>
-    {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
-    <form method="POST">
-        <input type="password" name="password" placeholder="Пароль" style="padding:10px; font-size:16px;">
-        <button type="submit" style="padding:10px 20px; font-size:16px;">Войти</button>
-    </form>
+<head><title>Вход в админку</title>{BASE_STYLE}</head>
+<body>
+    <div class="container" style="text-align:center; margin-top:120px;">
+        <div class="card" style="display:inline-block; width:100%; max-width:400px; box-sizing:border-box;">
+            <h2>🔐 Авторизация</h2>
+            {{% if error %}}<p class="error-msg">{{{{ error }}}}</p>{{% endif %}}
+            <form method="POST">
+                <input type="password" name="password" placeholder="Введите пароль">
+                <button type="submit" class="btn">Войти</button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
 """
 
-HTML_DASHBOARD = """
+HTML_DASHBOARD = f"""
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Панель управления воронкой</title>
-    <style>
-        body { font-family: sans-serif; margin: 30px; background: #f4f4f9; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background: #007bff; color: white; }
-        a.btn { background: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; }
-    </style>
-</head>
+<head><title>Панель управления воронкой</title>{BASE_STYLE}</head>
 <body>
-    <div class="card">
-        <h2>📊 Статистика воронки</h2>
-        <p>Всего прошло воронку: <strong>{{ total_users }}</strong> человек</p>
+    <div class="container">
+        <div class="card">
+            <h2>📊 Статистика воронки</h2>
+            <p style="color: var(--text-muted); margin-bottom: 0;">Всего прошло воронку: <strong style="color: var(--accent); font-size: 18px;">{{{{ total_users }}}}</strong> человек</p>
+        </div>
+        
+        <div class="card">
+            <h3>👥 Список пользователей</h3>
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Юзернейм (Telegram)</th>
+                    <th>Дата прохождения</th>
+                    <th>Действие</th>
+                </tr>
+                {{% for user in users %}}
+                <tr>
+                    <td>{{{{ user[0] }}}}</td>
+                    <td><a href="https://t.me/{{{{ user[1].replace('@','') }}}}" target="_blank">@{{{{ user[1] }}}}</a></td>
+                    <td style="color: var(--text-muted); font-size: 14px;">{{{{ user[7] }}}}</td>
+                    <td><a class="btn" href="/user/{{{{ user[0] }}}}">Анкета</a></td>
+                </tr>
+                {{% endfor %}}
+            </table>
+        </div>
+        <a href="/logout" class="logout-link">← Выйти из системы</a>
     </div>
-    
-    <div class="card">
-        <h3>👥 Список пользователей</h3>
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>Юзернейм (Telegram)</th>
-                <th>Дата прохождения</th>
-                <th>Действие</th>
-            </tr>
-            {% for user in users %}
-            <tr>
-                <td>{{ user[0] }}</td>
-                <td><a href="https://t.me/{{ user[1].replace('@','') }}" target="_blank">@{{ user[1] }}</a></td>
-                <td>{{ user[7] }}</td>
-                <td><a class="btn" href="/user/{{ user[0] }}">Открыть анкету</a></td>
-            </tr>
-            {% endfor %}
-        </table>
-    </div>
-    <a href="/logout">Выйти</a>
 </body>
 </html>
 """
 
-HTML_USER_DETAIL = """
+HTML_USER_DETAIL = f"""
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Анкета пользователя</title>
-    <style>
-        body { font-family: sans-serif; margin: 30px; background: #f4f4f9; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        ul { line-height: 1.8; }
-    </style>
-</head>
+<head><title>Анкета пользователя</title>{BASE_STYLE}</head>
 <body>
-    <div class="card">
-        <h2>📋 Анкета пользователя: @{{ user[1] }}</h2>
-        <p><strong>Telegram:</strong> <a href="https://t.me/{{ user[1].replace('@','') }}" target="_blank">Написать в личку (@{{ user[1] }})</a></p>
-        <p><strong>ID:</strong> {{ user[0] }}</p>
-        <p><strong>Дата:</strong> {{ user[7] }}</p>
-        <hr>
-        <h3>Ответы на вопросы:</h3>
-        <ul>
-            <li><strong>1. Занятость:</strong> {{ user[2] }}</li>
-            <li><strong>2. Желаемые изменения:</strong> {{ user[3] }}</li>
-            <li><strong>3. Значимый доход:</strong> {{ user[4] }}</li>
-            <li><strong>4. Готовность времени:</strong> {{ user[5] }}</li>
-            <li><strong>5. Что мешает:</strong> {{ user[6] }}</li>
-            <li><strong>6. Готовность к возможности:</strong> {{ user[7] }}</li>
-        </ul>
-        <br>
-        <a href="/">⬅ Назад к списку</a>
+    <div class="container">
+        <div class="card">
+            <h2>📋 Анкета: @{{{{ user[1] }}}}</h2>
+            <p style="color: var(--text-muted);">
+                <strong>Telegram:</strong> <a href="https://t.me/{{{{ user[1].replace('@','') }}}}" target="_blank">Открыть чат (@{{{{ user[1] }}}})</a><br>
+                <strong>ID в Telegram:</strong> {{{{ user[0] }}}<br>
+                <strong>Дата прохождения:</strong> {{{{ user[7] }}}}
+            </p>
+            <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
+            <h3>Ответы на вопросы:</h3>
+            <ul>
+                <li><strong>1. Занятость:</strong> {{{{ user[2] }}}}</li>
+                <li><strong>2. Желаемые изменения:</strong> {{{{ user[3] }}}}</li>
+                <li><strong>3. Значимый доход:</strong> {{{{ user[4] }}}}</li>
+                <li><strong>4. Готовность времени:</strong> {{{{ user[5] }}}}</li>
+                <li><strong>5. Что мешает:</strong> {{{{ user[6] }}}}</li>
+                <li><strong>6. Готовность к возможности:</strong> {{{{ user[7] }}}}</li>
+            </ul>
+            <br>
+            <a href="/" class="btn">⬅ Назад к списку</a>
+        </div>
     </div>
 </body>
 </html>
