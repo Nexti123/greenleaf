@@ -307,15 +307,15 @@ BASE_STYLE = """
     </style>
 """
 
-HTML_LOGIN = f"""
+HTML_LOGIN = """
 <!DOCTYPE html>
 <html>
-<head><title>Вход в админку</title>{BASE_STYLE}</head>
+<head><title>Вход в админку</title>""" + BASE_STYLE + """</head>
 <body>
     <div class="container" style="text-align:center; margin-top:120px;">
         <div class="card" style="display:inline-block; width:100%; max-width:400px; box-sizing:border-box;">
             <h2>🔐 Авторизация</h2>
-            {{% if error %}}<p class="error-msg">{{{{ error }}}}</p>{{% endif %}}
+            {% if error %}<p class="error-msg">{{ error }}</p>{% endif %}
             <form method="POST">
                 <input type="password" name="password" placeholder="Введите пароль">
                 <button type="submit" class="btn">Войти</button>
@@ -326,15 +326,15 @@ HTML_LOGIN = f"""
 </html>
 """
 
-HTML_DASHBOARD = f"""
+HTML_DASHBOARD = """
 <!DOCTYPE html>
 <html>
-<head><title>Панель управления воронкой</title>{BASE_STYLE}</head>
+<head><title>Панель управления воронкой</title>""" + BASE_STYLE + """</head>
 <body>
     <div class="container">
         <div class="card">
             <h2>📊 Статистика воронки</h2>
-            <p style="color: var(--text-muted); margin-bottom: 0;">Всего прошло воронку: <strong style="color: var(--accent); font-size: 18px;">{{{{ total_users }}}}</strong> человек</p>
+            <p style="color: var(--text-muted); margin-bottom: 0;">Всего прошло воронку: <strong style="color: var(--accent); font-size: 18px;">{{ total_users }}</strong> человек</p>
         </div>
         
         <div class="card">
@@ -346,14 +346,14 @@ HTML_DASHBOARD = f"""
                     <th>Дата прохождения</th>
                     <th>Действие</th>
                 </tr>
-                {{% for user in users %}}
+                {% for user in users %}
                 <tr>
-                    <td>{{{{ user[0] }}}}</td>
-                    <td><a href="https://t.me/{{{{ user[1].replace('@','') }}}}" target="_blank">@{{{{ user[1] }}}}</a></td>
-                    <td style="color: var(--text-muted); font-size: 14px;">{{{{ user[7] }}}}</td>
-                    <td><a class="btn" href="/user/{{{{ user[0] }}}}">Анкета</a></td>
+                    <td>{{ user[0] }}</td>
+                    <td><a href="https://t.me/{{ user[1].replace('@','') }}" target="_blank">@{{ user[1] }}</a></td>
+                    <td style="color: var(--text-muted); font-size: 14px;">{{ user[7] }}</td>
+                    <td><a class="btn" href="/user/{{ user[0] }}">Анкета</a></td>
                 </tr>
-                {{% endfor %}}
+                {% endfor %}
             </table>
         </div>
         <a href="/logout" class="logout-link">← Выйти из системы</a>
@@ -362,28 +362,28 @@ HTML_DASHBOARD = f"""
 </html>
 """
 
-HTML_USER_DETAIL = f"""
+HTML_USER_DETAIL = """
 <!DOCTYPE html>
 <html>
-<head><title>Анкета пользователя</title>{BASE_STYLE}</head>
+<head><title>Анкета пользователя</title>""" + BASE_STYLE + """</head>
 <body>
     <div class="container">
         <div class="card">
-            <h2>📋 Анкета: @{{{{ user[1] }}}}</h2>
+            <h2>📋 Анкета: @{{ user[1] }}</h2>
             <p style="color: var(--text-muted);">
-                <strong>Telegram:</strong> <a href="https://t.me/{{{{ user[1].replace('@','') }}}}" target="_blank">Открыть чат (@{{{{ user[1] }}}})</a><br>
-                <strong>ID в Telegram:</strong> {{{{ user[0] }}}<br>
-                <strong>Дата прохождения:</strong> {{{{ user[7] }}}}
+                <strong>Telegram:</strong> <a href="https://t.me/{{ user[1].replace('@','') }}" target="_blank">Открыть чат (@{{ user[1] }})</a><br>
+                <strong>ID в Telegram:</strong> {{ user[0] }}<br>
+                <strong>Дата прохождения:</strong> {{ user[7] }}
             </p>
             <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
             <h3>Ответы на вопросы:</h3>
             <ul>
-                <li><strong>1. Занятость:</strong> {{{{ user[2] }}}}</li>
-                <li><strong>2. Желаемые изменения:</strong> {{{{ user[3] }}}}</li>
-                <li><strong>3. Значимый доход:</strong> {{{{ user[4] }}}}</li>
-                <li><strong>4. Готовность времени:</strong> {{{{ user[5] }}}}</li>
-                <li><strong>5. Что мешает:</strong> {{{{ user[6] }}}}</li>
-                <li><strong>6. Готовность к возможности:</strong> {{{{ user[7] }}}}</li>
+                <li><strong>1. Занятость:</strong> {{ user[2] }}</li>
+                <li><strong>2. Желаемые изменения:</strong> {{ user[3] }}</li>
+                <li><strong>3. Значимый доход:</strong> {{ user[4] }}</li>
+                <li><strong>4. Готовность времени:</strong> {{ user[5] }}</li>
+                <li><strong>5. Что мешает:</strong> {{ user[6] }}</li>
+                <li><strong>6. Готовность к возможности:</strong> {{ user[7] }}</li>
             </ul>
             <br>
             <a href="/" class="btn">⬅ Назад к списку</a>
