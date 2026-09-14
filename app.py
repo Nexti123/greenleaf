@@ -46,6 +46,14 @@ def init_db():
 
 init_db()
 
+def check_user_exists(user_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,))
+    exists = cursor.fetchone() is not None
+    conn.close()
+    return exists
+
 def save_user_answer(user_id, username, data):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -121,6 +129,11 @@ def make_keyboard(q_key, options):
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
+    # Проверяем, проходил ли пользователь тест ранее
+    if check_user_exists(message.from_user.id):
+        await message.answer("⚠️ Вы уже прошли этот тест ранее. Спасибо за ваши ответы!")
+        return
+
     await state.clear()
     q_data = QUESTIONS['q1']
     await message.answer(f"1/6. {q_data['text']}", reply_markup=make_keyboard('q1', q_data['options']))
@@ -128,6 +141,13 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("ans_"))
 async def process_answer(callback: CallbackQuery, state: FSMContext):
+    # Дополнительная страховка: если пользователь попытается кликнуть по старым кнопкам повторно
+    if check_user_exists(callback.from_user.id):
+        await callback.message.edit_text("⚠️ Вы уже завершили прохождение теста ранее.")
+        await state.clear()
+        await callback.answer()
+        return
+
     parts = callback.data.split("_")
     q_key = parts[1]
     index = int(parts[2])
